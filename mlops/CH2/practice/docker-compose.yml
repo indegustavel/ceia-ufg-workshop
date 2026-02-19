@@ -63,7 +63,7 @@ services:
     volumes:
       - qdrant_data:/qdrant/storage
     healthcheck:
-      test: ["CMD-SHELL", "bash -c 'cat < /dev/tcp/localhost/6333'"] 
+      test: ["CMD-SHELL", "bash -c 'cat < /dev/tcp/localhost/6333'"]
       interval: 10s
       timeout: 10s
       retries: 10
