@@ -114,7 +114,7 @@ curl -X POST http://localhost:8000/documents \
 
 ### `POST /rag/query`
 
-Ask a natural-language question. The API retrieves the most relevant chunks from the FAISS index and uses GPT-4o-mini to synthesize an answer.
+Ask a natural-language question. The API retrieves the most relevant chunks from the ChromaDB collection and uses GPT-4o-mini to synthesize an answer.
 
 **Auth:** Bearer token required
 
@@ -156,7 +156,7 @@ curl -X POST http://localhost:8000/rag/query \
 
 ### `GET /rag/documents`
 
-List the unique document filenames currently stored in the FAISS index.
+List the unique document filenames currently stored in the ChromaDB collection.
 
 **Auth:** Bearer token required
 

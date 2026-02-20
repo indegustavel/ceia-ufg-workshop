@@ -11,8 +11,8 @@
 ## 1. Clone and configure
 
 ```bash
-git clone <repo-url> api-autoreg
-cd api-autoreg
+git clone <repo-url>
+cd <project-folder>
 ```
 
 Create a `.env` file in the project root with your OpenAI key:
@@ -27,16 +27,17 @@ OPENAI_API_KEY=sk-...
 docker compose up --build -d
 ```
 
-This brings up four containers:
+This brings up five containers:
 
 | Container | Role |
 |-----------|------|
 | `phoenix` | Arize Phoenix tracing UI |
+| `chromadb` | ChromaDB vector store |
 | `api` | FastAPI backend |
 | `streamlit` | Browser UI |
 | `mkdocs` | This documentation site |
 
-Wait for the API health check to pass (about 10–15 seconds):
+Wait for all health checks to pass (about 15–20 seconds):
 
 ```bash
 docker compose ps
@@ -47,6 +48,7 @@ docker compose ps
 - **Streamlit UI** → [http://localhost:8501](http://localhost:8501)
 - **Swagger / ReDoc** → [http://localhost:8000/docs](http://localhost:8000/docs)
 - **Phoenix tracing** → [http://localhost:6006](http://localhost:6006)
+- **ChromaDB API** → [http://localhost:8001](http://localhost:8001)
 - **Docs** → [http://localhost:8080](http://localhost:8080)
 
 ## 4. Default credentials

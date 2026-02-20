@@ -20,13 +20,14 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
 
 UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", "/tmp/api_autoreg_uploads"))
-VECTORSTORE_DIR = Path(os.getenv("VECTORSTORE_DIR", "/tmp/api_autoreg_vectorstore"))
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+CHROMA_HOST = os.getenv("CHROMA_HOST", "localhost")
+CHROMA_PORT = int(os.getenv("CHROMA_PORT", "8000"))
+CHROMA_COLLECTION = os.getenv("CHROMA_COLLECTION", "documents")
 SUPPORTED_EXTENSIONS = {".pdf", ".txt"}
 _vs_lock = asyncio.Lock()
 
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-VECTORSTORE_DIR.mkdir(parents=True, exist_ok=True)
 
 pwd_context = CryptContext(schemes=["sha256_crypt"], deprecated="auto")
 
@@ -95,13 +96,17 @@ _PHOENIX_ENDPOINT = os.getenv("PHOENIX_COLLECTOR_ENDPOINT", "")
 if _PHOENIX_ENDPOINT:
     from phoenix.otel import register
     from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+    from openinference.instrumentation.langchain import LangChainInstrumentor
+    from openinference.instrumentation.openai import OpenAIInstrumentor
 
     _tracer_provider = register(
-        project_name="api-autoreg",
+        project_name="doc-qa-api",
         endpoint=_PHOENIX_ENDPOINT,
         batch=True,
     )
     FastAPIInstrumentor.instrument_app(app, tracer_provider=_tracer_provider)
+    LangChainInstrumentor().instrument(tracer_provider=_tracer_provider)
+    OpenAIInstrumentor().instrument(tracer_provider=_tracer_provider)
 
 
 # ---------------------------------------------------------------------------
@@ -176,10 +181,11 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> str:
 # ---------------------------------------------------------------------------
 
 def _ingest_file(path: Path) -> int:
+    import chromadb
     from langchain_community.document_loaders import PyPDFLoader, TextLoader
     from langchain_text_splitters import RecursiveCharacterTextSplitter
     from langchain_openai import OpenAIEmbeddings
-    from langchain_community.vectorstores import FAISS
+    from langchain_chroma import Chroma
 
     if path.suffix == ".pdf":
         loader = PyPDFLoader(str(path))
@@ -190,32 +196,34 @@ def _ingest_file(path: Path) -> int:
     chunks = RecursiveCharacterTextSplitter(
         chunk_size=1000, chunk_overlap=150
     ).split_documents(docs)
-    embeddings = OpenAIEmbeddings(api_key=OPENAI_API_KEY)
-    index_file = VECTORSTORE_DIR / "index.faiss"
-    if index_file.exists():
-        vs = FAISS.load_local(
-            str(VECTORSTORE_DIR), embeddings, allow_dangerous_deserialization=True
-        )
-        vs.add_documents(chunks)
-    else:
-        vs = FAISS.from_documents(chunks, embeddings)
-    vs.save_local(str(VECTORSTORE_DIR))
+
+    client = chromadb.HttpClient(host=CHROMA_HOST, port=CHROMA_PORT)
+    vs = Chroma(
+        collection_name=CHROMA_COLLECTION,
+        embedding_function=OpenAIEmbeddings(api_key=OPENAI_API_KEY),
+        client=client,
+    )
+    vs.add_documents(chunks)
     return len(chunks)
 
 
 def _run_rag_query(question: str) -> dict | None:
+    import chromadb
     from langchain_openai import OpenAIEmbeddings, ChatOpenAI
-    from langchain_community.vectorstores import FAISS
+    from langchain_chroma import Chroma
     from langchain_core.prompts import ChatPromptTemplate
     from langchain_core.output_parsers import StrOutputParser
     from langchain_core.runnables import RunnablePassthrough
 
-    index_file = VECTORSTORE_DIR / "index.faiss"
-    if not index_file.exists():
+    client = chromadb.HttpClient(host=CHROMA_HOST, port=CHROMA_PORT)
+    collection = client.get_or_create_collection(CHROMA_COLLECTION)
+    if collection.count() == 0:
         return None
-    embeddings = OpenAIEmbeddings(api_key=OPENAI_API_KEY)
-    vs = FAISS.load_local(
-        str(VECTORSTORE_DIR), embeddings, allow_dangerous_deserialization=True
+
+    vs = Chroma(
+        collection_name=CHROMA_COLLECTION,
+        embedding_function=OpenAIEmbeddings(api_key=OPENAI_API_KEY),
+        client=client,
     )
     retriever = vs.as_retriever(search_kwargs={"k": 4})
     llm = ChatOpenAI(
@@ -239,8 +247,7 @@ def _run_rag_query(question: str) -> dict | None:
         | llm
         | StrOutputParser()
     )
-    answer = chain.invoke(question)
-    return {"answer": answer, "sources": sources}
+    return {"answer": chain.invoke(question), "sources": sources}
 
 
 # ---------------------------------------------------------------------------
@@ -347,28 +354,21 @@ async def rag_query(
     "/rag/documents",
     response_model=IndexedDocumentsResponse,
     summary="List indexed documents",
-    description="Returns the unique document names currently stored in the FAISS index.",
+    description="Returns the unique document names currently stored in the ChromaDB collection.",
     tags=["RAG"],
     responses={
         200: {"description": "List of indexed document filenames"},
     },
 )
-async def list_indexed_documents(
-    current_user: str = Depends(get_current_user),
-):
-    index_file = VECTORSTORE_DIR / "index.faiss"
-    if not index_file.exists():
+async def list_indexed_documents(current_user: str = Depends(get_current_user)):
+    import chromadb
+    client = chromadb.HttpClient(host=CHROMA_HOST, port=CHROMA_PORT)
+    collection = client.get_or_create_collection(CHROMA_COLLECTION)
+    if collection.count() == 0:
         return {"documents": []}
-    from langchain_openai import OpenAIEmbeddings
-    from langchain_community.vectorstores import FAISS
-
-    embeddings = OpenAIEmbeddings(api_key=OPENAI_API_KEY)
-    vs = FAISS.load_local(
-        str(VECTORSTORE_DIR), embeddings, allow_dangerous_deserialization=True
-    )
-    names = sorted(
-        {Path(doc.metadata.get("source", "unknown")).name for doc in vs.docstore._dict.values()}
-    )
+    results = collection.get(include=["metadatas"])
+    metadatas = results["metadatas"] or []
+    names = sorted({Path(str(m.get("source", "unknown"))).name for m in metadatas})
     return {"documents": names}
 
 

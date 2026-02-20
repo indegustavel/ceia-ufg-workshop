@@ -17,6 +17,20 @@ services:
       retries: 5
       start_period: 15s
 
+  chromadb:
+    build: ./vectordb
+    ports:
+      - "8001:8000"       # host:8001 avoids conflict with api on host:8000
+    volumes:
+      - chromadb_data:/chroma/chroma
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v2/heartbeat"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
   api:
     build: .
     ports:
@@ -27,15 +41,17 @@ services:
       ACCESS_TOKEN_EXPIRE_MINUTES: "30"
       PHOENIX_COLLECTOR_ENDPOINT: "http://phoenix:6006/v1/traces"
       UPLOAD_DIR: "/app/uploads"
-      VECTORSTORE_DIR: "/app/vectorstore"
+      CHROMA_HOST: "chromadb"
+      CHROMA_PORT: "8000"
       OPENAI_MODEL: "gpt-4o-mini"
     env_file: [.env]          # provides OPENAI_API_KEY
     volumes:
       - .:/app          # bind-mount source for hot reload
       - rag_data:/app/uploads
-      - rag_data:/app/vectorstore
     depends_on:
       phoenix:
+        condition: service_healthy
+      chromadb:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
@@ -69,4 +85,6 @@ volumes:
   phoenix_data:
     driver: local
   rag_data:
+    driver: local
+  chromadb_data:
     driver: local

@@ -17,18 +17,20 @@
 │  └──────────────┘     ┌──────────────────────────▼───────────┐  │
 │                        │        LangChain RAG pipeline        │  │
 │                        │  PyPDF / TextLoader → Splitter →    │  │
-│                        │  OpenAIEmbeddings → FAISS index      │  │
+│                        │  OpenAIEmbeddings → ChromaDB        │  │
+│                        └──────────────────────────┬───────────┘  │
+│                                                   │              │
+│  ┌──────────────┐     ┌─────────────────────────▼───────────┐  │
+│  │  Phoenix     │◀── OpenTelemetry traces from FastAPI       │  │
+│  │  :6006       │     │       ChromaDB (chromadb)            │  │
+│  └──────────────┘     │       :8000 (internal)               │  │
 │                        └──────────────────────────────────────┘  │
-│                                                                 │
-│  ┌──────────────┐                                               │
-│  │  Phoenix     │◀── OpenTelemetry traces from FastAPI          │
-│  │  :6006       │                                               │
-│  └──────────────┘                                               │
 └─────────────────────────────────────────────────────────────────┘
 
    Volumes:
-     phoenix_data  →  /mnt/data  (Phoenix traces)
-     rag_data      →  /app/uploads + /app/vectorstore (FAISS index)
+     phoenix_data   →  /mnt/data        (Phoenix traces)
+     rag_data       →  /app/uploads     (raw uploaded files)
+     chromadb_data  →  /chroma/chroma   (ChromaDB collection)
 ```
 
 ## Tech Stack
@@ -41,10 +43,10 @@
 | Document loading | LangChain `PyPDFLoader`, `TextLoader` |
 | Text splitting | `RecursiveCharacterTextSplitter` (1000 chars, 150 overlap) |
 | Embeddings | OpenAI `text-embedding-ada-002` (via `langchain-openai`) |
-| Vector store | FAISS (persisted to disk) |
+| Vector store | ChromaDB (dedicated container, HTTP client via `langchain-chroma`) |
 | LLM | OpenAI `gpt-4o-mini` |
 | UI | Streamlit |
-| Tracing | Arize Phoenix + OpenTelemetry |
+| Tracing | Arize Phoenix + OpenTelemetry (LangChain + OpenAI instrumented) |
 | Runtime | Python 3.13, uv |
 | Containerization | Docker + Docker Compose |
 | Docs | MkDocs Material |
@@ -67,7 +69,7 @@ Client
             ├─ Load document (PyPDFLoader / TextLoader)
             ├─ Split into chunks (1000 chars, 150 overlap)
             ├─ Embed chunks (OpenAI embeddings)
-            └─ Upsert into FAISS index (VECTORSTORE_DIR)
+            └─ Add to ChromaDB collection (via HTTP client)
 ```
 
 ### Query flow
@@ -77,8 +79,8 @@ Client
   │
   └─ POST /rag/query { "question": "..." } (Bearer token)
        │
-       ├─ Load FAISS index from disk
-       ├─ Retrieve top-4 relevant chunks
+       ├─ Connect to ChromaDB, check collection.count() > 0
+       ├─ Retrieve top-4 relevant chunks (similarity search)
        ├─ Build prompt: context + question
        ├─ Call ChatOpenAI (gpt-4o-mini, temperature=0)
        └─ Return { "answer": "...", "sources": [...] }

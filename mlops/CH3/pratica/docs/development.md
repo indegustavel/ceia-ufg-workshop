@@ -24,6 +24,8 @@ cp .env.example .env   # or create .env manually with OPENAI_API_KEY=sk-...
 uv run uvicorn main:app --reload --port 8000
 ```
 
+> **Note:** When running locally without Docker, set `CHROMA_HOST=localhost` and ensure ChromaDB is reachable (e.g. via `docker compose up chromadb -d`).
+
 The API will be available at [http://localhost:8000](http://localhost:8000).
 
 ## Running Tests
@@ -72,7 +74,7 @@ API_BASE_URL=http://localhost:8000 uv run streamlit run app.py
 ## Project Structure
 
 ```
-api-autoreg/
+doc-qa-api/
 ├── main.py                  # FastAPI application (single-file)
 ├── test_main.py             # pytest test suite
 ├── pyproject.toml           # Project metadata and dependencies
@@ -80,6 +82,7 @@ api-autoreg/
 ├── Dockerfile               # API container image
 ├── docker-compose.yml       # Full stack definition
 ├── .env                     # Secrets (not committed)
+├── .env.example             # Example env file
 ├── .python-version          # Python version pin for uv
 ├── mkdocs.yml               # MkDocs configuration
 ├── docs/                    # Documentation source (this site)
@@ -91,6 +94,8 @@ api-autoreg/
 │   ├── rag-pipeline.md
 │   ├── configuration.md
 │   └── development.md
+├── vectordb/
+│   └── Dockerfile           # ChromaDB container image
 └── streamlit_app/
     ├── app.py               # Streamlit UI
     ├── Dockerfile

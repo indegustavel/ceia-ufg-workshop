@@ -1,6 +1,6 @@
 # RAG Pipeline
 
-API AutoReg implements a Retrieval-Augmented Generation (RAG) pipeline using LangChain. Documents are ingested once on upload and queried on demand.
+This API implements a Retrieval-Augmented Generation (RAG) pipeline using LangChain. Documents are ingested once on upload and queried on demand. The vector store runs in a dedicated ChromaDB container.
 
 ## Supported File Formats
 
@@ -33,12 +33,12 @@ OpenAIEmbeddings
   model: text-embedding-ada-002
     │
     ▼
-FAISS vector store (persisted to VECTORSTORE_DIR)
-  ├── First upload  → FAISS.from_documents(chunks, embeddings)
-  └── Subsequent   → FAISS.load_local() + vs.add_documents(chunks)
+ChromaDB (via HTTP client)
+  collection: "documents" (configurable via CHROMA_COLLECTION)
+  vs.add_documents(chunks)
 ```
 
-> Ingestion is protected by an `asyncio.Lock` so concurrent uploads do not corrupt the index.
+> Ingestion is protected by an `asyncio.Lock` so concurrent uploads do not produce duplicate writes within the same API process.
 
 ---
 
@@ -48,8 +48,8 @@ FAISS vector store (persisted to VECTORSTORE_DIR)
 POST /rag/query { "question": "..." }
     │
     ▼
-Load FAISS index from VECTORSTORE_DIR
-    │
+ChromaDB: collection.count() > 0?  →  No → 404
+    │ Yes
     ▼
 Retriever: similarity search, k=4
   → returns top-4 most relevant chunks
@@ -85,16 +85,15 @@ Response { "answer": "...", "sources": [...] }
 
 | Path (container) | Content |
 |------------------|---------|
-| `/app/uploads/` | Raw uploaded files |
-| `/app/vectorstore/index.faiss` | FAISS binary index |
-| `/app/vectorstore/index.pkl` | FAISS docstore (metadata) |
+| `/app/uploads/` | Raw uploaded files (backed by `rag_data` volume) |
+| `/chroma/chroma/` | ChromaDB collection data (backed by `chromadb_data` volume) |
 
-Both directories are backed by the `rag_data` Docker volume, so the index persists across container restarts.
+Both volumes persist across container restarts.
 
 ---
 
 ## Limitations
 
-- The FAISS index is **not deduplicated**: uploading the same file twice adds its chunks twice.
-- Only one FAISS index exists globally; there is no per-user or per-collection separation.
+- ChromaDB does **not deduplicate** by default: uploading the same file twice adds its chunks twice.
+- A single collection (`documents`) is shared globally; there is no per-user or per-collection separation.
 - Large PDFs with many pages may increase ingestion time significantly because each page triggers an embedding API call batch.
