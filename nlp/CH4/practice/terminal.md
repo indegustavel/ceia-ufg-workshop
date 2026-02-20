@@ -57,13 +57,13 @@ OPENAI_API_KEY=sk-sua-chave-aqui
 ### Ingestão no Qdrant
 
 ```bash
-python src/ingestao.py
+python src/ingestion.py
 ```
 
 ### Avaliação de métricas (100 primeiros IDs)
 
 ```bash
-python src/metricas.py
+python3 src/metrics.py
 ```
 
 ### Teste de RAG via terminal
