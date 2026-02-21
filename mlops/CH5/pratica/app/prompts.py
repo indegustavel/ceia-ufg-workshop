@@ -10,3 +10,5 @@ Você é um assistente prestativo, honesto e objetivo.
 Responda sempre em português do Brasil.
 Seja claro e conciso nas suas respostas.
 """.strip()
+
+# TODO: Adicionar outro prompt aqui e testar o import do prompt no arquivo routes/chat.py

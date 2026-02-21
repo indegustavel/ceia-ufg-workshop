@@ -1,26 +1,30 @@
 """
-Cliente OpenRouter — compatível com a interface da OpenAI SDK.
+Cliente Google AI Studio (Gemini) — compatível com a interface da OpenAI SDK.
 
-O OpenRouter oferece acesso unificado a múltiplos provedores de LLM
-(OpenAI, Anthropic, Meta, etc.) através de uma API compatível com o
-padrão da OpenAI. Isso significa que podemos usar o SDK oficial da
-OpenAI apontando apenas para um base_url diferente.
+O Google AI Studio expõe uma API compatível com o padrão da OpenAI,
+o que nos permite usar o SDK oficial da OpenAI apontando apenas para
+um base_url diferente — sem precisar instalar nenhuma dependência extra.
 
-Documentação OpenRouter: https://openrouter.ai/docs
+Como obter sua chave gratuita:
+  1. Acesse https://aistudio.google.com/apikey
+  2. Clique em "Create API Key"
+  3. Copie a chave e cole no seu .env como GOOGLE_API_KEY
+
+Documentação: https://ai.google.dev/gemini-api/docs/openai
 """
 
 import os
 
-from openai import OpenAI
+from openai import AsyncOpenAI
 
 
-def get_client() -> OpenAI:
+def get_client() -> AsyncOpenAI:
     """
-    Retorna um cliente OpenAI configurado para usar o OpenRouter.
+    Retorna um cliente configurado para usar o Google AI Studio (Gemini).
 
-    A variável OPENROUTER_API_KEY deve estar definida no ambiente.
+    A variável GOOGLE_API_KEY deve estar definida no ambiente.
     """
-    return OpenAI(
-        api_key=os.getenv("OPENROUTER_API_KEY"),
-        base_url="https://openrouter.ai/api/v1",
+    return AsyncOpenAI(
+        api_key=os.getenv("GOOGLE_API_KEY"),
+        base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
     )

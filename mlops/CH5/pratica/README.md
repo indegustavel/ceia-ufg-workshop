@@ -52,7 +52,7 @@ Antes de começar, você precisa ter instalado:
 
 - [Docker](https://docs.docker.com/get-docker/)
 - [gcloud CLI](https://cloud.google.com/sdk/docs/install)
-- Conta no [OpenRouter](https://openrouter.ai) com uma API Key
+- API Key do [Google AI Studio](https://aistudio.google.com/apikey) (gratuita)
 
 E ter acesso a um projeto no Google Cloud com os seguintes serviços habilitados:
 - Cloud Build
@@ -72,8 +72,10 @@ cp .env.example .env
 Edite o `.env` e preencha sua chave:
 
 ```env
-OPENROUTER_API_KEY=sk-or-...
+GOOGLE_API_KEY=AIza...
 ```
+
+> Obtenha sua chave gratuitamente em [https://aistudio.google.com/apikey](https://aistudio.google.com/apikey)
 
 ### 2.2 Build e start com Docker
 
@@ -93,7 +95,7 @@ curl -X POST http://localhost:8000/chat \
   -H "Content-Type: application/json" \
   -d '{
     "messages": [{"role": "user", "content": "Olá! Quem é você?"}],
-    "model": "openai/gpt-4o-mini"
+    "model": "gemini-2.0-flash"
   }'
 ```
 
@@ -195,8 +197,8 @@ https://api-blackbox-xxxx-uc.a.run.app
 
 ## Erros Comuns
 
-### `OPENROUTER_API_KEY not found`
-A variável de ambiente não está configurada. Verifique se o arquivo `.env` existe e está preenchido. No Docker, confirme que está passando `--env-file .env`.
+### `GOOGLE_API_KEY not found` ou `401 Unauthorized`
+A variável de ambiente não está configurada. Verifique se o arquivo `.env` existe e está preenchido corretamente. No Docker, confirme que está passando `--env-file .env`.
 
 ### `Permission denied` no Cloud Build
 A Service Account não tem permissão suficiente. Verifique se os três papéis da Etapa 3.3 foram concedidos corretamente.
