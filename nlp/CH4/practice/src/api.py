@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 
 # Importa a função que criamos no script anterior
-from src.rag import gerar_resposta_rag
+from rag import gerar_resposta_rag
 
 app = FastAPI(title="API RAG Educacional")
 
