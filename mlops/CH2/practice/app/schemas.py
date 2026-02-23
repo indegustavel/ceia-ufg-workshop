@@ -24,5 +24,5 @@ class AskResponse(BaseModel):
     answer: str
     context: List[Dict]
     # Educational fields
-    retrieved_docs: List[str] # Simple list of texts
+    retrieved_docs: List[Dict] # Rich list of docs with scores
     built_prompt: str         # The exact prompt sent to LLM

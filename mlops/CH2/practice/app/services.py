@@ -61,7 +61,7 @@ class DocumentProcessor:
 
 class VectorDbService:
     def __init__(self):
-        self.collection_name = os.getenv("QDRANT_COLLECTION", "medical_docs")
+        self.collection_name = os.getenv("QDRANT_COLLECTION", "workshop_docs")
         qdrant_host = os.getenv("QDRANT_HOST", "qdrant")
         qdrant_port = int(os.getenv("QDRANT_PORT", "6333"))
 
@@ -85,6 +85,14 @@ class VectorDbService:
                 )
         except Exception as e:
             logger.error(f"Error ensuring collection: {e}")
+
+    def check_health(self) -> bool:
+        try:
+            # Lightweight check: get collection info
+            self.qdrant.get_collection(self.collection_name)
+            return True
+        except Exception:
+            return False
 
     def ingest(self, texts: List[str], source: str) -> int:
         self.ensure_collection()
@@ -184,6 +192,14 @@ class LLMService:
             logger.error(f"LLM call failed: {e}")
             return f"Erro ao contatar LLM: {str(e)}", full_prompt_debug
 
+    def check_health(self) -> bool:
+        try:
+            # Lightweight check to LLM models endpoint
+            resp = requests.get(f"{self.api_url}/models", timeout=2.0)
+            return resp.status_code == 200
+        except Exception:
+            return False
+
 class OrchestratorService:
     def __init__(self):
         self.vector_db = VectorDbService()
@@ -200,6 +216,12 @@ class OrchestratorService:
         answer, debug_prompt = self.llm_service.generate_response(context_str, question)
         
         return answer, docs, retrieved_texts, debug_prompt
+    
+    def get_health(self) -> Dict[str, str]:
+        return {
+            "vector_db": "online" if self.vector_db.check_health() else "offline",
+            "llm": "online" if self.llm_service.check_health() else "offline"
+        }
     
     def process_and_ingest_file(self, content: bytes, filename: str) -> int:
         ext = filename.split('.')[-1].lower()
