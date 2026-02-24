@@ -46,6 +46,22 @@ pratica/
 
 ---
 
+## Etapa 0 — Fazer fork do repositório
+
+Antes de qualquer comando, você precisa ter **uma cópia sua** deste repositório no seu GitHub, para que os workflows de GitHub Actions (CI/CD) rodem na sua conta.
+
+1. Acesse o repositório base do workshop no GitHub  
+2. Clique em **Fork** (canto superior direito)  
+3. Escolha sua conta (ou organização) e confirme  
+4. No repositório forkado, vá em **Settings → Actions → General** e garanta que o GitHub Actions está **habilitado**  
+5. Ainda em **Settings → Secrets and variables → Actions**, crie os secrets:
+   - `GCP_PROJECT_ID`
+   - `GCP_SA_KEY`
+
+Depois disso, todos os **push para a branch `main`** do seu fork vão acionar o pipeline descrito neste README.
+
+---
+
 ## Etapa 1 — Pré-requisitos
 
 Antes de começar, você precisa ter instalado:
