@@ -70,7 +70,8 @@ jobs:
       # ----------------------------------------------------------
       - name: Submeter build ao Cloud Build
         run: |
+          cd mlops/CH5/pratica
           gcloud builds submit \
             --project=${{ secrets.GCP_PROJECT_ID }} \
-            --config=mlops/CH5/pratica/cloudbuild.yaml \
-            mlops/CH5/pratica/
+            --config=cloudbuild.yaml \
+            .

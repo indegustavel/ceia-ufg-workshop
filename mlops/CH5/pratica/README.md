@@ -46,6 +46,22 @@ pratica/
 
 ---
 
+## Etapa 0 — Fazer fork do repositório
+
+Antes de qualquer comando, você precisa ter **uma cópia sua** deste repositório no seu GitHub, para que os workflows de GitHub Actions (CI/CD) rodem na sua conta
+
+1. Acesse o repositório base do workshop no GitHub  
+2. Clique em **Fork** (canto superior direito)  
+3. Escolha sua conta (ou organização) e confirme a ação 
+4. No repositório forkado, vá em **Settings → Actions → General** e garanta que o GitHub Actions está **habilitado**  
+5. Ainda em **Settings → Secrets and variables → Actions**, crie os secrets:
+   - `GCP_PROJECT_ID`
+   - `GCP_SA_KEY`
+
+Depois disso, todos os **push para a branch `main`** do seu fork vão acionar o pipeline descrito neste README.
+
+---
+
 ## Etapa 1 — Pré-requisitos
 
 Antes de começar, você precisa ter instalado:
@@ -119,7 +135,19 @@ gcloud auth login
 gcloud config set project SEU_PROJECT_ID
 ```
 
-### 3.2 Criar o repositório no Artifact Registry
+### 3.2 Ativar as APIs necessárias
+
+Antes de criar recursos, ative as APIs usadas pelo pipeline (faz uma vez por projeto):
+
+```bash
+gcloud services enable \
+  cloudbuild.googleapis.com \
+  run.googleapis.com \
+  artifactregistry.googleapis.com \
+  iam.googleapis.com
+```
+
+### 3.3 Criar o repositório no Artifact Registry
 
 ```bash
 gcloud artifacts repositories create docker-images \
@@ -127,14 +155,14 @@ gcloud artifacts repositories create docker-images \
   --location=us-central1
 ```
 
-### 3.3 Criar a Service Account para o pipeline
+### 3.4 Criar a Service Account para o pipeline
 
 ```bash
 gcloud iam service-accounts create github-deployer \
   --display-name="GitHub Actions Deployer"
 ```
 
-Conceder as permissões necessárias:
+Conceder as permissões necessárias (Cloud Build, Cloud Run, Service Account e Storage):
 
 ```bash
 gcloud projects add-iam-policy-binding SEU_PROJECT_ID \
@@ -148,6 +176,10 @@ gcloud projects add-iam-policy-binding SEU_PROJECT_ID \
 gcloud projects add-iam-policy-binding SEU_PROJECT_ID \
   --member="serviceAccount:github-deployer@SEU_PROJECT_ID.iam.gserviceaccount.com" \
   --role="roles/iam.serviceAccountUser"
+
+gcloud projects add-iam-policy-binding SEU_PROJECT_ID \
+  --member="serviceAccount:github-deployer@SEU_PROJECT_ID.iam.gserviceaccount.com" \
+  --role="roles/storage.admin"
 ```
 
 Gerar e baixar a chave JSON:
@@ -158,6 +190,36 @@ gcloud iam service-accounts keys create sa-key.json \
 ```
 
 > **Atenção:** nunca faça commit deste arquivo. Adicione `sa-key.json` ao seu `.gitignore`.
+
+### 3.5 (Opcional, mas recomendado) Armazenar secrets no Secret Manager
+
+Até aqui usamos secrets apenas no GitHub (`GCP_SA_KEY`) e variáveis de ambiente locais (`GOOGLE_API_KEY`).  
+Em produção, o ideal é que **todas as chaves sensíveis** fiquem em um cofre de secrets — no GCP, isso é o **Secret Manager**.
+
+Boas práticas importantes:
+- **Nunca** coloque API keys diretamente no código, Dockerfile ou `cloudbuild.yaml`
+- **Nunca** faça commit de arquivos `.env` reais no Git
+- Prefira sempre: Secret Manager → variável de ambiente injetada pelo Cloud Run
+
+Exemplo de criação de um secret para a chave do LLM:
+
+```bash
+gcloud secrets create GOOGLE_API_KEY \
+  --replication-policy=\"automatic\"
+
+echo -n \"sua-chave-aqui\" | gcloud secrets versions add GOOGLE_API_KEY \
+  --data-file=-
+```
+
+Para que o serviço no Cloud Run possa ler esse secret, conceda o papel de acesso:
+
+```bash
+gcloud projects add-iam-policy-binding SEU_PROJECT_ID \
+  --member=\"serviceAccount:learning-llmops@SEU_PROJECT_ID.iam.gserviceaccount.com\" \
+  --role=\"roles/secretmanager.secretAccessor\"
+```
+
+Depois, no Cloud Run, você pode mapear o secret para uma variável de ambiente (via console ou `gcloud run deploy` usando `--set-secrets`).
 
 ---
 
@@ -192,6 +254,36 @@ Quando o pipeline terminar, o Cloud Run exibirá a URL pública do serviço:
 ```
 https://api-blackbox-xxxx-uc.a.run.app
 ```
+
+---
+
+## Deploy manual a partir do Artifact Registry (atalho visual)
+
+Além do pipeline automático, você pode fazer um deploy manual diretamente a partir da imagem gerada no Artifact Registry.
+
+Passo a passo:
+
+1. Acesse o **Artifact Registry** no console GCP  
+2. Entre no repositório `docker-images`  
+3. Clique na imagem `api-blackbox` (tag `latest` ou a tag que quiser usar)  
+4. Clique em **Implantar no Cloud Run** (Deploy to Cloud Run)
+
+Na tela de configuração do Cloud Run, preste atenção a alguns pontos:
+
+- **Nome do serviço**: por exemplo, `api-blackbox`  
+- **Região**: use a mesma do Artifact Registry (ex: `us-central1`)  
+- **Porta do container**: `8080` (é o que o Dockerfile expõe)  
+- **Autenticação**: marque **Permitir invocações não autenticadas** para deixar a API pública (útil para o workshop)  
+- **Autoscaling**:
+  - Mínimo de instâncias: `0` (economia quando não há tráfego)
+  - Máximo de instâncias: `1` (controle de custos no workshop)
+  - Concurrency (requisições por instância): você pode manter o padrão (80)
+- **Variáveis de ambiente**:
+  - Adicione `GOOGLE_API_KEY` se não estiver usando Secret Manager
+
+Depois clique em **Implantar**. Em alguns segundos, o Cloud Run mostrará a URL pública — é a mesma URL que você pode usar na UI do desafio e nos testes com `curl`.
+
+> Em um cenário real, você tende a usar o deploy via pipeline (Cloud Build + GitHub Actions) como caminho principal, e o deploy manual via console apenas como ferramenta de diagnóstico ou correção rápida.
 
 ---
 
