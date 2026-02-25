@@ -132,7 +132,7 @@ Resposta esperada:
 
 ```bash
 gcloud auth login
-gcloud config set project SEU_PROJECT_ID
+gcloud config set project tensile-impact-486818-g9
 ```
 
 ### 3.2 Ativar as APIs necessárias
@@ -165,20 +165,20 @@ gcloud iam service-accounts create github-deployer \
 Conceder as permissões necessárias (Cloud Build, Cloud Run, Service Account e Storage):
 
 ```bash
-gcloud projects add-iam-policy-binding SEU_PROJECT_ID \
-  --member="serviceAccount:github-deployer@SEU_PROJECT_ID.iam.gserviceaccount.com" \
+gcloud projects add-iam-policy-binding tensile-impact-486818-g9 \
+  --member="serviceAccount:github-deployer@tensile-impact-486818-g9.iam.gserviceaccount.com" \
   --role="roles/cloudbuild.builds.editor"
 
-gcloud projects add-iam-policy-binding SEU_PROJECT_ID \
-  --member="serviceAccount:github-deployer@SEU_PROJECT_ID.iam.gserviceaccount.com" \
+gcloud projects add-iam-policy-binding tensile-impact-486818-g9 \
+  --member="serviceAccount:github-deployer@tensile-impact-486818-g9.iam.gserviceaccount.com" \
   --role="roles/run.admin"
 
-gcloud projects add-iam-policy-binding SEU_PROJECT_ID \
-  --member="serviceAccount:github-deployer@SEU_PROJECT_ID.iam.gserviceaccount.com" \
+gcloud projects add-iam-policy-binding tensile-impact-486818-g9 \
+  --member="serviceAccount:github-deployer@tensile-impact-486818-g9.iam.gserviceaccount.com" \
   --role="roles/iam.serviceAccountUser"
 
-gcloud projects add-iam-policy-binding SEU_PROJECT_ID \
-  --member="serviceAccount:github-deployer@SEU_PROJECT_ID.iam.gserviceaccount.com" \
+gcloud projects add-iam-policy-binding tensile-impact-486818-g9 \
+  --member="serviceAccount:github-deployer@tensile-impact-486818-g9.iam.gserviceaccount.com" \
   --role="roles/storage.admin"
 ```
 
@@ -186,8 +186,11 @@ Gerar e baixar a chave JSON:
 
 ```bash
 gcloud iam service-accounts keys create sa-key.json \
-  --iam-account=github-deployer@SEU_PROJECT_ID.iam.gserviceaccount.com
+  --iam-account=github-deployer@tensile-impact-486818-g9.iam.gserviceaccount.com
 ```
+
+2aa2c78122416694e1dd28a4fa2a8fecdfc272a1
+
 
 > **Atenção:** nunca faça commit deste arquivo. Adicione `sa-key.json` ao seu `.gitignore`.
 
@@ -207,15 +210,15 @@ Exemplo de criação de um secret para a chave do LLM:
 gcloud secrets create GOOGLE_API_KEY \
   --replication-policy=\"automatic\"
 
-echo -n \"sua-chave-aqui\" | gcloud secrets versions add GOOGLE_API_KEY \
+echo -n \"AIzaSyDEMBEjuqZjhX8R7_SsoU8g5HrMBMBZygE\" | gcloud secrets versions add GOOGLE_API_KEY \
   --data-file=-
 ```
 
 Para que o serviço no Cloud Run possa ler esse secret, conceda o papel de acesso:
 
 ```bash
-gcloud projects add-iam-policy-binding SEU_PROJECT_ID \
-  --member=\"serviceAccount:learning-llmops@SEU_PROJECT_ID.iam.gserviceaccount.com\" \
+gcloud projects add-iam-policy-binding tensile-impact-486818-g9 \
+  --member=\"serviceAccount:learning-llmops@tensile-impact-486818-g9.iam.gserviceaccount.com\" \
   --role=\"roles/secretmanager.secretAccessor\"
 ```
 
